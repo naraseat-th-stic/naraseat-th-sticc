@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ระบบติดตามงาน - นายนราเศรษฐ์ ธัญศิรอนันต์</title>
+  
+  <!-- CSS Stylesheet -->
+  <link rel="stylesheet" href="css/style.css">
+  
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
+</head>
+<body>
+
+  <!-- Print Header Only for Paper / PDF -->
+  <div class="print-only-header">
+    <h2 style="font-size: 20pt; margin-bottom: 6px;" data-i18n="appTitle">ระบบติดตามงาน (Job Tracking System)</h2>
+    <p style="font-size: 13pt;"><span data-i18n="ownerLabel">ผู้รับผิดชอบงาน:</span> <strong>นายนราเศรษฐ์ ธัญศิรอนันต์</strong></p>
+    <p style="font-size: 11pt; color: #555;"><span id="printDate"></span></p>
+  </div>
+
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-brand">
+        <div class="brand-avatar">📋</div>
+        <div class="brand-info">
+          <h1 data-i18n="appTitle">ระบบติดตามงาน (Job & Ticket Tracker)</h1>
+          <div class="user-name">
+            <span data-i18n="ownerLabel">ผู้ใช้งานหลัก:</span>
+            <strong>นายนราเศรษฐ์ ธัญศิรอนันต์</strong>
+            <span class="user-badge" data-i18n="ownerBadge">เจ้าของงาน</span>
+          </div>
+        </div>
+      </div>
+      
+      <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+        <!-- Language Switcher (Thai / English) -->
+        <div class="lang-switch-wrap">
+          <button id="langBtnTh" class="lang-btn active" onclick="I18nManager.setLang('th')">🇹🇭 TH</button>
+          <button id="langBtnEn" class="lang-btn" onclick="I18nManager.setLang('en')">🇬🇧 EN</button>
+        </div>
+
+        <!-- Cloud Sync Badge -->
+        <div id="headerCloudSyncBadge" class="cloud-status-badge" onclick="switchTab('settings')">
+          <span>⚪</span> <span data-i18n="cloudOffline">โหมดในเครื่อง (Local)</span>
+        </div>
+        
+        <div class="header-time-box">
+          <div class="current-date" id="headerCurrentDate">กำลังโหลดวันที่...</div>
+          <div class="current-time" id="headerCurrentTime">--:--:--</div>
+        </div>
+        <button class="btn btn-secondary" onclick="openHelpModal()" title="คู่มือการใช้งานแบบเข้าใจง่าย" style="background: rgba(255,255,255,0.9); border: none;">
+          <span data-i18n="helpBtn">❓ คู่มือใช้งาน</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Overdue Alert Banners (เตือนล่าช้า 3 วัน และ 5 วัน) -->
+    <div id="overdueBannerContainer" class="overdue-banner-container"></div>
+
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs">
+      <button class="nav-tab-btn active" data-tab="dashboard">
+        <span data-i18n="tabDashboard">📊 หน้าแรกภาพรวม</span>
+      </button>
+      <button class="nav-tab-btn" data-tab="create">
+        <span data-i18n="tabCreate">➕ สร้างใบงานใหม่</span>
+      </button>
+      <button class="nav-tab-btn" data-tab="tracker">
+        <span data-i18n="tabTracker">📅 ติดตามงานรายสัปดาห์</span>
+      </button>
+      <button class="nav-tab-btn" data-tab="tickets">
+        <span data-i18n="tabTickets">📋 รายการใบงานทั้งหมด</span>
+        <span id="tabOverdueBadge" class="tab-badge" style="display: none;">0 งานล่าช้า</span>
+      </button>
+      <button class="nav-tab-btn" data-tab="kanban">
+        <span data-i18n="tabKanban">📌 กระดานคัมบัง</span>
+      </button>
+      <button class="nav-tab-btn" data-tab="completed">
+        <span data-i18n="tabCompleted">🏆 ผลงานที่เสร็จสิ้น (รายเดือน/ปี)</span>
+      </button>
+      <button class="nav-tab-btn" data-tab="settings">
+        <span data-i18n="tabSettings">⚙️ คลาวด์ & สำรองข้อมูล</span>
+      </button>
+    </nav>
+
+    <!-- ==========================================
+         TAB 1: แดชบอร์ดภาพรวม (Dashboard)
+         ========================================== -->
+    <section id="tab-dashboard" class="tab-content active">
+      <!-- 4 KPI Cards -->
+      <div class="stats-grid">
+        <div class="stat-card stat-blue" onclick="switchTab('tickets'); document.getElementById('tableFilterStatus').value='all'; renderTicketsTable();">
+          <div class="stat-info">
+            <p data-i18n="kpiTotal">ใบงานทั้งหมดในระบบ</p>
+            <div class="stat-number" id="dashTotal">0</div>
+          </div>
+          <div class="stat-icon">📁</div>
+        </div>
+
+        <div class="stat-card stat-amber" onclick="switchTab('tickets'); document.getElementById('tableFilterStatus').value='in_progress'; renderTicketsTable();">
+          <div class="stat-info">
+            <p data-i18n="kpiInProgress">งานที่กำลังดำเนินการ</p>
+            <div class="stat-number" id="dashProgress">0</div>
+          </div>
+          <div class="stat-icon">⏳</div>
+        </div>
+
+        <div class="stat-card stat-green" onclick="switchTab('tickets'); document.getElementById('tableFilterStatus').value='completed'; renderTicketsTable();">
+          <div class="stat-info">
+            <p data-i18n="kpiCompleted">งานที่เสร็จสมบูรณ์แล้ว</p>
+            <div class="stat-number" id="dashCompleted">0</div>
+          </div>
+          <div class="stat-icon">✅</div>
+        </div>
+
+        <div class="stat-card stat-red" onclick="filterByOverdue('overdue')">
+          <div class="stat-info">
+            <p data-i18n="kpiOverdue">งานที่ล่าช้าเกินกำหนด</p>
+            <div class="stat-number" id="dashOverdue">0</div>
+          </div>
+          <div class="stat-icon">🚨</div>
+        </div>
+      </div>
+
+      <!-- Today's Tasks Section -->
+      <div class="today-box">
+        <div class="today-header">
+          <div class="today-title">
+            <span>🎯</span>
+            <span data-i18n="todayPriorities">งานที่ต้องทำในวันนี้ (Today's Priorities)</span>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="switchTab('create')">
+            <span data-i18n="quickAddBtn">➕ เพิ่มใบงานด่วน</span>
+          </button>
+        </div>
+        <div id="dashboardTodayTasksList" class="weekly-today-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px;">
+          <!-- Loaded by JS -->
+        </div>
+      </div>
+
+      <!-- Quick Action Buttons -->
+      <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 10px;">
+        <button class="btn btn-primary" onclick="switchTab('create')">
+          <span data-i18n="tabCreate">➕ สร้างใบงานใหม่ (Create Ticket)</span>
+        </button>
+        <button class="btn btn-secondary" onclick="switchTab('tracker')">
+          <span data-i18n="openWeeklyBtn">📅 เปิดดูตารางงานสัปดาห์นี้</span>
+        </button>
+        <button class="btn btn-success" onclick="exportToExcelCSV()">
+          <span data-i18n="exportExcelBtn">📗 ส่งออกเป็น Excel (CSV)</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         TAB 2: สร้างใบงาน (Create Ticket Form)
+         ========================================== -->
+    <section id="tab-create" class="tab-content">
+      <div class="form-container">
+        <div class="form-header">
+          <h2><span>➕</span> <span data-i18n="formTitle">สร้างใบงานใหม่ (Job Ticket)</span></h2>
+          <p data-i18n="formDesc">กรอกข้อมูลรายละเอียดของงานที่ได้รับมอบหมาย เพื่อใช้ติดตามความคืบหน้าและแจ้งเตือนวันครบกำหนด</p>
+        </div>
+
+        <form id="createTicketForm">
+          <div class="form-grid">
+            <!-- หัวข้องาน -->
+            <div class="form-group form-grid grid-full">
+              <label for="ticketTitle">
+                <span data-i18n="labelTaskTitle">หัวข้องาน</span> <span class="required">*</span>
+              </label>
+              <input type="text" id="ticketTitle" class="form-control" data-i18n-placeholder="placeholderTaskTitle" placeholder="เช่น จัดเตรียมเอกสารสรุปยอดประจำเดือน ตรวจนับสต็อก หรือประสานงานประชุม" required>
+            </div>
+
+            <!-- รายละเอียดงาน -->
+            <div class="form-group form-grid grid-full">
+              <label for="ticketDescription" data-i18n="labelDescription">รายละเอียดงาน / สิ่งที่ต้องทำ</label>
+              <textarea id="ticketDescription" class="form-control" rows="3" data-i18n-placeholder="placeholderDescription" placeholder="ระบุสิ่งที่ต้องทำ เอกสารที่เกี่ยวข้อง หรือข้อควรระวัง..."></textarea>
+            </div>
+
+            <!-- วันเริ่มงาน -->
+            <div class="form-group">
+              <label for="ticketStartDate">
+                <span data-i18n="labelStartDate">วันเริ่มงาน (วัน/เดือน/ปี)</span> <span class="required">*</span>
+              </label>
+              <input type="date" id="ticketStartDate" class="form-control" required>
+              <div class="input-hint" data-i18n="hintStartDate">วันที่เริ่มลงมือทำงาน</div>
+            </div>
+
+            <!-- วันสิ้นสุดงาน -->
+            <div class="form-group">
+              <label for="ticketEndDate">
+                <span data-i18n="labelEndDate">วันสิ้นสุดงาน (วันครบกำหนดส่ง)</span> <span class="required">*</span>
+              </label>
+              <input type="date" id="ticketEndDate" class="form-control" required>
+              <div class="input-hint" data-i18n="hintEndDate">ระบบจะคำนวณวันแจ้งเตือนหากล่าช้า 3 วัน หรือ 5 วัน</div>
+            </div>
+
+            <!-- ระยะเวลาในการมอบหมายงาน -->
+            <div class="form-group">
+              <label for="ticketDuration" data-i18n="labelDuration">ระยะเวลาในการมอบหมายงาน</label>
+              <input type="text" id="ticketDuration" class="form-control" placeholder="เช่น 3 วัน, 1 สัปดาห์">
+              <div class="duration-preview-box">
+                <span data-i18n="hintDurationCalc">⏱️ คำนวณตามวันที่:</span>
+                <span id="durationPreviewText" class="duration-preview-highlight">3 วัน</span>
+              </div>
+            </div>
+
+            <!-- หมวดหมู่งาน -->
+            <div class="form-group">
+              <label for="ticketCategory" data-i18n="labelCategory">หมวดหมู่งาน</label>
+              <select id="ticketCategory" class="form-control">
+                <!-- Loaded by JS -->
+              </select>
+            </div>
+
+            <!-- ผู้มอบหมายงาน -->
+            <div class="form-group form-grid grid-full">
+              <label for="ticketAssigner">
+                <span data-i18n="labelAssigner">ผู้มอบหมายงาน</span> <span class="required">*</span>
+              </label>
+              <input type="text" id="ticketAssigner" class="form-control" data-i18n-placeholder="placeholderAssigner" placeholder="พิมพ์ชื่อผู้มอบหมาย หรือคลิกเลือกจากปุ่มด้านล่าง" required>
+              <div style="margin-top: 4px;">
+                <span style="font-size: 12px; color: var(--text-muted);" data-i18n="quickAssignerLabel">เลือกรายชื่อด่วน:</span>
+                <div id="quickAssignerTags" class="quick-tags"></div>
+              </div>
+            </div>
+
+            <!-- ระดับความสำคัญ -->
+            <div class="form-group form-grid grid-full">
+              <label><span data-i18n="labelPriority">ระดับความสำคัญของงาน</span> <span class="required">*</span></label>
+              <div class="priority-selector">
+                <div class="priority-option opt-urgent">
+                  <input type="radio" name="priority" id="prio-urgent" value="urgent">
+                  <label for="prio-urgent" class="priority-label">
+                    <span style="font-size: 18px;">🔴</span>
+                    <span data-i18n="priorityUrgent">ด่วนที่สุด</span>
+                  </label>
+                </div>
+
+                <div class="priority-option opt-high">
+                  <input type="radio" name="priority" id="prio-high" value="high">
+                  <label for="prio-high" class="priority-label">
+                    <span style="font-size: 18px;">🟠</span>
+                    <span data-i18n="priorityHigh">ด่วน</span>
+                  </label>
+                </div>
+
+                <div class="priority-option opt-normal">
+                  <input type="radio" name="priority" id="prio-normal" value="normal" checked>
+                  <label for="prio-normal" class="priority-label">
+                    <span style="font-size: 18px;">🟡</span>
+                    <span data-i18n="priorityNormal">ปานกลาง (ปกติ)</span>
+                  </label>
+                </div>
+
+                <div class="priority-option opt-low">
+                  <input type="radio" name="priority" id="prio-low" value="low">
+                  <label for="prio-low" class="priority-label">
+                    <span style="font-size: 18px;">🟢</span>
+                    <span data-i18n="priorityLow">ทั่วไป / ต่ำ</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- สถานะเริ่มต้น -->
+            <div class="form-group">
+              <label for="ticketStatus" data-i18n="labelInitialStatus">สถานะเริ่มต้น</label>
+              <select id="ticketStatus" class="form-control">
+                <option value="pending" data-i18n="statusPending">⏳ รอดำเนินการ</option>
+                <option value="in_progress" data-i18n="statusInProgress">⚡ กำลังดำเนินการ</option>
+                <option value="completed" data-i18n="statusCompleted">✅ เสร็จสมบูรณ์แล้ว</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" class="btn btn-secondary" onclick="switchTab('dashboard')"><span data-i18n="btnCancel">ยกเลิก</span></button>
+            <button type="submit" class="btn btn-primary" style="padding: 10px 24px;">
+              <span data-i18n="btnSaveTicket">💾 บันทึกใบงาน</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         TAB 3: ติดตามงานรายสัปดาห์ (Weekly Tracker)
+         ========================================== -->
+    <section id="tab-tracker" class="tab-content">
+      <!-- ส่วนงานวันนี้ -->
+      <div class="today-box">
+        <div class="today-header">
+          <div class="today-title">
+            <span>📌</span>
+            <span data-i18n="todayWorkTitle">วันนี้ทำอะไรบ้าง (งานประจำวันนี้)</span>
+          </div>
+          <span style="font-size: 13px; color: var(--text-muted);" data-i18n="clickCardHint">คลิกที่การ์ดเพื่อดูหรือแก้ไขงาน</span>
+        </div>
+        <div id="trackerTodayTasksList" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px;"></div>
+      </div>
+
+      <!-- ส่วนตารางปฏิทินรายสัปดาห์ (7 วัน) -->
+      <div class="tracker-container">
+        <div class="tracker-nav">
+          <div class="section-title">
+            <span>📅</span>
+            <span data-i18n="weeklyTrackerTitle">ตารางการทำงานรายสัปดาห์</span>
+          </div>
+          <div class="week-selector">
+            <button class="btn btn-secondary btn-sm" onclick="changeWeek('prev')"><span data-i18n="btnPrevWeek">◀ สัปดาห์ก่อนหน้า</span></button>
+            <button class="btn btn-secondary btn-sm" onclick="changeWeek('current')"><span data-i18n="btnCurrentWeek">สัปดาห์นี้ (ปัจจุบัน)</span></button>
+            <button class="btn btn-secondary btn-sm" onclick="changeWeek('next')"><span data-i18n="btnNextWeek">สัปดาห์ถัดไป ▶</span></button>
+            <span id="weeklyRangeBadge" class="week-display-badge">--</span>
+          </div>
+        </div>
+
+        <div id="weeklyGridContainer" class="weekly-grid">
+          <!-- Loaded by JS: 7 Columns (Mon - Sun) -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         TAB 4: รายการใบงานทั้งหมด (All Tickets Table)
+         ========================================== -->
+    <section id="tab-tickets" class="tab-content">
+      <!-- Search & Filters -->
+      <div class="filter-bar">
+        <div class="search-input-wrap">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="tableSearchInput" class="form-control" data-i18n-placeholder="searchPlaceholder" placeholder="ค้นหาชื่องาน, ผู้มอบหมาย, หรือรหัสใบงาน..." oninput="renderTicketsTable()">
+        </div>
+
+        <div class="filter-group">
+          <label style="font-size: 13.5px; font-weight: 600; color: #475569;" data-i18n="filterStatusLabel">สถานะ / การแจ้งเตือน:</label>
+          <select id="tableFilterStatus" class="form-control" style="width: auto;" onchange="renderTicketsTable()">
+            <option value="all" data-i18n="filterAll">แสดงทั้งหมด</option>
+            <option value="in_progress" data-i18n="statusInProgress">กำลังดำเนินการ (In Progress)</option>
+            <option value="pending" data-i18n="statusPending">รอดำเนินการ (Pending)</option>
+            <option value="completed" data-i18n="statusCompleted">เสร็จสมบูรณ์ (Completed)</option>
+            <option value="overdue" data-i18n="filterOverdueAll">🚨 งานที่ล่าช้าทั้งหมด</option>
+            <option value="overdue3" data-i18n="filterOverdue3Only">⚠️ เฉพาะงานที่ล่าช้า 3 วัน</option>
+            <option value="overdue5" data-i18n="filterOverdue5Only">🚨 เฉพาะงานที่ล่าช้าเกิน 5 วัน</option>
+          </select>
+          <span id="tableCountBadge" class="badge" style="background: #e2e8f0; color: #334155; font-size: 12px; padding: 6px 12px;">0 รายการ</span>
+        </div>
+
+        <div class="section-actions">
+          <button class="btn btn-primary" onclick="switchTab('create')">
+            <span data-i18n="tabCreate">➕ สร้างใบงาน</span>
+          </button>
+          <button class="btn btn-success" onclick="exportToExcelCSV()">
+            <span data-i18n="exportExcelBtn">📗 โหลด Excel (CSV)</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="table-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width: 100px;" data-i18n="thTicketId">รหัสใบงาน</th>
+              <th data-i18n="thTaskDetails">หัวข้องาน / รายละเอียด</th>
+              <th style="width: 170px;" data-i18n="thAssigner">ผู้มอบหมาย</th>
+              <th style="width: 130px;" data-i18n="thPriority">ความสำคัญ</th>
+              <th style="width: 170px;" data-i18n="thTimeline">ระยะเวลางาน</th>
+              <th style="width: 140px;" data-i18n="thStatus">สถานะงาน</th>
+              <th style="width: 130px; text-align: center;" data-i18n="thAction">จัดการ</th>
+            </tr>
+          </thead>
+          <tbody id="ticketsTableBody">
+            <!-- Loaded by JS -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         TAB 5: กระดานคัมบัง (Kanban Board)
+         ========================================== -->
+    <section id="tab-kanban" class="tab-content">
+      <div class="section-header">
+        <div class="section-title">
+          <span>📌</span>
+          <span>กระดานสถานะงาน (Kanban Board)</span>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="switchTab('create')">
+          ➕ สร้างใบงานใหม่
+        </button>
+      </div>
+
+      <div class="kanban-board">
+        <!-- รอดำเนินการ -->
+        <div class="kanban-column">
+          <div class="kanban-header">
+            <div class="kanban-title" style="color: #475569;">
+              <span>⏳</span>
+              <span>รอดำเนินการ (Pending)</span>
+            </div>
+            <span class="kanban-count" id="kanbanPendingCount">0</span>
+          </div>
+          <div class="kanban-cards-wrap" id="kanbanPendingCards"></div>
+        </div>
+
+        <!-- กำลังดำเนินการ -->
+        <div class="kanban-column" style="background: #f0f7ff; border-color: #bfdbfe;">
+          <div class="kanban-header">
+            <div class="kanban-title" style="color: #1d4ed8;">
+              <span>⚡</span>
+              <span>กำลังดำเนินการ (In Progress)</span>
+            </div>
+            <span class="kanban-count" id="kanbanProgressCount" style="background: #dbeafe; color: #1e40af;">0</span>
+          </div>
+          <div class="kanban-cards-wrap" id="kanbanProgressCards"></div>
+        </div>
+
+        <!-- เสร็จสมบูรณ์ -->
+        <div class="kanban-column" style="background: #f0fdf4; border-color: #bbf7d0;">
+          <div class="kanban-header">
+            <div class="kanban-title" style="color: #15803d;">
+              <span>✅</span>
+              <span>เสร็จสมบูรณ์ (Completed)</span>
+            </div>
+            <span class="kanban-count" id="kanbanCompletedCount" style="background: #dcfce7; color: #166534;">0</span>
+          </div>
+          <div class="kanban-cards-wrap" id="kanbanCompletedCards"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         TAB: ผลงานที่เสร็จสิ้น (Completed Tasks Archive)
+         แสดงงานที่เสร็จสมบูรณ์ แยกตามรายปีและรายเดือน
+         ========================================== -->
+    <section id="tab-completed" class="tab-content">
+      <!-- Section Header -->
+      <div class="section-header">
+        <div class="section-title">
+          <span>🏆</span>
+          <span data-i18n="completedTitle">สรุปผลงานที่เสร็จสมบูรณ์ (แยกประเภทตามรายปีและรายเดือน)</span>
+        </div>
+        <div class="section-actions">
+          <button class="btn btn-secondary" onclick="printCompletedReport()">
+            <span data-i18n="btnPrintReport">🖨️ พิมพ์รายงานสรุปผลงาน</span>
+          </button>
+          <button class="btn btn-success" onclick="exportCompletedExcel()">
+            <span data-i18n="btnExportCompletedExcel">📗 โหลด Excel เฉพาะงานที่เสร็จ</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Filter Bar for Year & Month -->
+      <div class="filter-bar" style="background: #f0fdf4; border-color: #bbf7d0;">
+        <div class="filter-group">
+          <div>
+            <label style="font-size: 13px; font-weight: 700; color: #166534; display: block; margin-bottom: 4px;" data-i18n="labelFilterYear">📅 เลือกปี:</label>
+            <select id="completedFilterYear" class="form-control" style="font-weight: 600;" onchange="renderCompletedTasksView()">
+              <!-- Loaded by JS -->
+            </select>
+          </div>
+
+          <div>
+            <label style="font-size: 13px; font-weight: 700; color: #166534; display: block; margin-bottom: 4px;" data-i18n="labelFilterMonth">🗓️ เลือกเดือน:</label>
+            <select id="completedFilterMonth" class="form-control" style="font-weight: 600;" onchange="renderCompletedTasksView()">
+              <!-- Loaded by JS -->
+            </select>
+          </div>
+
+          <div>
+            <label style="font-size: 13px; font-weight: 700; color: #166534; display: block; margin-bottom: 4px;" data-i18n="labelFilterCat">📁 หมวดหมู่งาน:</label>
+            <select id="completedFilterCategory" class="form-control" onchange="renderCompletedTasksView()">
+              <!-- Loaded by JS -->
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <span id="completedCountBadge" class="badge" style="background: #16a34a; color: #ffffff; font-size: 13px; padding: 6px 14px;">
+            0 งานที่เสร็จแล้ว
+          </span>
+        </div>
+      </div>
+
+      <!-- 4 Performance KPI Cards -->
+      <div class="stats-grid">
+        <div class="stat-card stat-green">
+          <div class="stat-info">
+            <p data-i18n="compKpiTotalLabel">งานที่ทำเสร็จในงวดนี้</p>
+            <div class="stat-number" id="compKpiTotal">0</div>
+          </div>
+          <div class="stat-icon">🏆</div>
+        </div>
+
+        <div class="stat-card stat-blue">
+          <div class="stat-info">
+            <p data-i18n="compKpiOnTimeLabel">อัตราส่งมอบงานตรงเวลา</p>
+            <div class="stat-number" id="compKpiOnTime">100%</div>
+          </div>
+          <div class="stat-icon">⏱️</div>
+        </div>
+
+        <div class="stat-card stat-amber">
+          <div class="stat-info">
+            <p data-i18n="compKpiTopCatLabel">หมวดหมู่งานที่ทำมากที่สุด</p>
+            <div class="stat-number" id="compKpiTopCat" style="font-size: 16px; font-weight: 600; line-height: 1.4;">-</div>
+          </div>
+          <div class="stat-icon">📁</div>
+        </div>
+
+        <div class="stat-card stat-blue">
+          <div class="stat-info">
+            <p data-i18n="compKpiTopAssignerLabel">ผู้มอบหมายงานหลักในงวดนี้</p>
+            <div class="stat-number" id="compKpiTopAssigner" style="font-size: 16px; font-weight: 600; line-height: 1.4;">-</div>
+          </div>
+          <div class="stat-icon">👤</div>
+        </div>
+      </div>
+
+      <!-- Monthly Breakdown Chart (12 Months Bar Chart) -->
+      <div class="monthly-chart-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+          <h4 style="font-size: 15px; font-weight: 700; color: #334155; display: flex; align-items: center; gap: 6px;">
+            <span>📊</span>
+            <span data-i18n="monthlyChartTitle">สถิติการส่งมอบงานแยกรายเดือน (มกราคม - ธันวาคม)</span>
+          </h4>
+          <span style="font-size: 12px; color: var(--text-muted);" data-i18n="monthlyChartHint">* คลิกที่แท่งเดือนเพื่อกรองดูงานของเดือนนั้นได้ทันที</span>
+        </div>
+        <div id="monthlyBreakdownContainer" class="month-bars-grid">
+          <!-- Loaded by JS -->
+        </div>
+      </div>
+
+      <!-- Completed Tasks Table -->
+      <div class="table-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width: 100px;" data-i18n="thTicketId">รหัสใบงาน</th>
+              <th data-i18n="thTaskDetails">หัวข้องาน / รายละเอียดผลงาน</th>
+              <th style="width: 170px;" data-i18n="thAssigner">ผู้มอบหมาย</th>
+              <th style="width: 140px;" data-i18n="labelCategory">หมวดหมู่</th>
+              <th style="width: 170px;" data-i18n="thCompletedActualDate">วันครบกำหนด / เสร็จจริง</th>
+              <th style="width: 130px;" data-i18n="thDeliveryStatus">การส่งมอบ</th>
+              <th style="width: 110px; text-align: center;" data-i18n="thAction">จัดการ</th>
+            </tr>
+          </thead>
+          <tbody id="completedTasksTableBody">
+            <!-- Loaded by JS -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         TAB 6: คลาวด์ & สำรองข้อมูล (Google Sheets & Backup)
+         ========================================== -->
+    <section id="tab-settings" class="tab-content">
+      <div class="section-header">
+        <div class="section-title">
+          <span>⚙️</span>
+          <span data-i18n="settingsTitle">การเชื่อมต่อ Google Sheets และการสำรองข้อมูล</span>
+        </div>
+      </div>
+
+      <div class="settings-grid">
+        <!-- เชื่อมต่อ Google Sheets -->
+        <div class="settings-card" style="grid-column: 1 / -1; border: 2px solid #93c5fd; background: #ffffff;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px; margin-bottom: 12px;">
+            <div>
+              <h3 style="color: #1d4ed8; font-size: 18px;">
+                <span>📊</span>
+                <span data-i18n="gsCardTitle">เชื่อมต่อ Google Sheets เป็น Database ถาวร (Cloud Database)</span>
+              </h3>
+              <p style="margin-bottom: 0;" data-i18n="gsCardDesc">เก็บบันทึกข้อมูลงานทั้งหมดลงบน Google Sheets โดยอัตโนมัติ ข้อมูลอยู่ตลอดไป เปิดดูจากมือถือหรือคอมพิวเตอร์เครื่องอื่นได้ทุกที่</p>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="openGoogleSheetHelpModal()">
+              <span data-i18n="gsHelpBtn">❓ วิธีเชื่อมต่อใน 3 นาที (ง่ายมาก)</span>
+            </button>
+          </div>
+
+          <div id="settingsSyncStatusBox" style="margin-bottom: 16px;"></div>
+
+          <div style="margin-bottom: 16px;">
+            <label for="googleSheetUrlInput" style="font-size: 13.5px; font-weight: 600; color: #334155; display: block; margin-bottom: 6px;" data-i18n="gsUrlLabel">
+              ลิงก์ Google Apps Script Web App URL:
+            </label>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <input type="url" id="googleSheetUrlInput" class="form-control" style="flex: 1; min-width: 280px;" placeholder="https://script.google.com/macros/s/.../exec">
+              <button class="btn btn-primary" onclick="handleSaveGoogleSheetUrl()">
+                <span data-i18n="btnSaveGsUrl">💾 บันทึกและทดสอบเชื่อมต่อ</span>
+              </button>
+            </div>
+            <div style="margin-top: 10px; display: flex; align-items: center; gap: 8px;">
+              <input type="checkbox" id="googleSheetAutoSyncCheckbox" style="accent-color: var(--primary);" checked onchange="GoogleSheetService.setAutoSync(this.checked)">
+              <label for="googleSheetAutoSyncCheckbox" style="font-size: 13px; color: #475569; cursor: pointer;" data-i18n="gsAutoSyncLabel">
+                ซิงค์ข้อมูลอัตโนมัติทุกครั้งเมื่อมีการสร้าง, แก้ไข, หรือเปลี่ยนสถานะงาน
+              </label>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 10px; flex-wrap: wrap; border-top: 1px dashed #cbd5e1; padding-top: 14px;">
+            <button class="btn btn-primary btn-sm" onclick="handleManualPushToGoogle()">
+              <span data-i18n="btnPushGoogle">📤 อัปโหลดข้อมูลขึ้น Google Sheets เดี๋ยวนี้</span>
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="handleManualPullFromGoogle()">
+              <span data-i18n="btnPullGoogle">📥 ดึงข้อมูลล่าสุดจาก Google Sheets มาที่นี่</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- ส่งออก Excel -->
+        <div class="settings-card">
+          <h3><span>📗</span> <span data-i18n="exportExcelCardTitle">ส่งออกข้อมูลเป็น Excel (CSV)</span></h3>
+          <p data-i18n="exportExcelCardDesc">ดาวน์โหลดข้อมูลใบงานทั้งหมดเพื่อเปิดดูและพิมพ์ใน Microsoft Excel โดยรองรับภาษาไทย 100% ไม่เป็นภาษาต่างดาว</p>
+          <button class="btn btn-success" onclick="exportToExcelCSV()">
+            <span data-i18n="btnDownloadExcel">ดาวน์โหลดไฟล์ Excel (.csv)</span>
+          </button>
+        </div>
+
+        <!-- สำรองข้อมูลระบบ -->
+        <div class="settings-card">
+          <h3><span>💾</span> <span data-i18n="backupCardTitle">สำรองและกู้คืนข้อมูล (Backup & Restore)</span></h3>
+          <p data-i18n="backupCardDesc">เก็บรักษาข้อมูลใบงานไว้เป็นไฟล์สำรอง สามารถนำกลับมาเปิดใช้งานบนเครื่องอื่นหรือเบราว์เซอร์อื่นได้</p>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="btn btn-primary" onclick="exportBackupJSON()">
+              <span data-i18n="btnDownloadJson">ดาวน์โหลดไฟล์สำรอง (.json)</span>
+            </button>
+            <label class="btn btn-secondary" style="cursor: pointer;">
+              <span data-i18n="btnRestoreJson">กู้คืนจากไฟล์</span>
+              <input type="file" accept=".json" onchange="importBackupJSON(event)" style="display: none;">
+            </label>
+          </div>
+        </div>
+
+        <!-- รีเซ็ตหรือเริ่มต้นใหม่ -->
+        <div class="settings-card">
+          <h3><span>🔄</span> <span data-i18n="demoCardTitle">ข้อมูลตัวอย่างและรีเซ็ต</span></h3>
+          <p data-i18n="demoCardDesc">ท่านสามารถกดโหลดข้อมูลตัวอย่างเพื่อทดลองใช้งาน หรือล้างข้อมูลทั้งหมดเมื่อต้องการเริ่มบันทึกงานใหม่</p>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="btn btn-secondary" onclick="resetDemoData()">
+              <span data-i18n="btnLoadDemo">โหลดข้อมูลตัวอย่างเริ่มต้น</span>
+            </button>
+            <button class="btn btn-danger" onclick="clearAllData()">
+              <span data-i18n="btnClearAll">ล้างข้อมูลทั้งหมด</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ==========================================
+       MODAL 1: รายละเอียดใบงาน (Ticket Detail Modal)
+       ========================================== -->
+  <div id="ticketDetailModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>📋</span>
+          <span>รายละเอียดใบงาน</span>
+          <span id="modalTicketId" style="color: var(--primary); font-size: 16px;"></span>
+        </div>
+        <button class="btn-close-modal" onclick="closeTicketModal()">×</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Overdue Alert in Modal -->
+        <div id="modalTicketAlertBox" style="display: none; margin-bottom: 16px;"></div>
+
+        <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+          <span id="modalTicketPriority" class="badge"></span>
+          <span id="modalTicketStatus" class="badge"></span>
+        </div>
+
+        <h3 id="modalTicketTitle" style="font-size: 18px; margin-bottom: 12px; color: var(--text-main);"></h3>
+        
+        <div class="detail-item">
+          <div class="detail-label" data-i18n="modalLabelTaskDesc">รายละเอียดงาน / สิ่งที่ต้องทำ:</div>
+          <div id="modalTicketDesc" class="detail-val" style="background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0; white-space: pre-wrap;"></div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px;">
+          <div>
+            <div class="detail-label" data-i18n="modalLabelAssigner">ผู้มอบหมาย:</div>
+            <div id="modalTicketAssigner" class="detail-val" style="font-weight: 600;"></div>
+          </div>
+          <div>
+            <div class="detail-label" data-i18n="modalLabelCategory">หมวดหมู่งาน:</div>
+            <div id="modalTicketCategory" class="detail-val"></div>
+          </div>
+          <div>
+            <div class="detail-label" data-i18n="modalLabelStartDate">วันเริ่มงาน:</div>
+            <div id="modalTicketStartDate" class="detail-val"></div>
+          </div>
+          <div>
+            <div class="detail-label" data-i18n="modalLabelEndDate">วันสิ้นสุดงาน:</div>
+            <div id="modalTicketEndDate" class="detail-val" style="font-weight: 600; color: #b91c1c;"></div>
+          </div>
+          <div>
+            <div class="detail-label" data-i18n="modalLabelDuration">ระยะเวลาในการมอบหมาย:</div>
+            <div id="modalTicketDuration" class="detail-val"></div>
+          </div>
+        </div>
+
+        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 16px 0;">
+
+        <!-- อัปเดตสถานะและความคืบหน้า -->
+        <div style="background: #f1f5f9; padding: 16px; border-radius: 10px;">
+          <h4 style="font-size: 14px; margin-bottom: 12px; color: #334155;">🔄 <span data-i18n="modalProgressSection">อัปเดตความคืบหน้างาน</span></h4>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 12px;">
+            <div class="form-group">
+              <label for="modalStatusSelect" data-i18n="modalChangeStatus">เปลี่ยนสถานะงาน:</label>
+              <select id="modalStatusSelect" class="form-control">
+                <option value="pending" data-i18n="statusPending">⏳ รอดำเนินการ</option>
+                <option value="in_progress" data-i18n="statusInProgress">⚡ กำลังดำเนินการ</option>
+                <option value="completed" data-i18n="statusCompleted">✅ เสร็จสมบูรณ์</option>
+                <option value="cancelled" data-i18n="statusCancelled">❌ ยกเลิก</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="modalProgressRange"><span data-i18n="modalProgressLabel">ความคืบหน้า:</span> <span id="modalProgressValue" style="color: var(--primary); font-weight: 700;">0%</span></label>
+              <input type="range" id="modalProgressRange" min="0" max="100" step="5" style="width: 100%; accent-color: var(--primary); margin-top: 8px;" oninput="document.getElementById('modalProgressValue').textContent = this.value + '%'">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="modalNotesInput" data-i18n="modalNotesLabel">บันทึกช่วยจำ / ข้อความคืบหน้า:</label>
+            <textarea id="modalNotesInput" class="form-control" rows="2" data-i18n-placeholder="modalNotesPlaceholder" placeholder="เช่น ส่งเอกสารเบิกจ่ายแล้ว รอยืนยัน..."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="printActiveTicket()"><span data-i18n="btnPrintTicket">🖨️ พิมพ์ใบงาน</span></button>
+        <button class="btn btn-danger" onclick="deleteActiveTicket()"><span data-i18n="btnDeleteTicket">🗑️ ลบใบงาน</span></button>
+        <button class="btn btn-primary" onclick="saveModalUpdates()"><span data-i18n="btnSaveModal">💾 บันทึกการแก้ไข</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       MODAL 2: คู่มือการใช้งาน (Quick Help Modal)
+       ========================================== -->
+  <div id="helpModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 600px;">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>💡</span>
+          <span>คู่มือการใช้งานระบบติดตามงาน (แบบง่ายๆ)</span>
+        </div>
+        <button class="btn-close-modal" onclick="closeHelpModal()">×</button>
+      </div>
+      <div class="modal-body" style="font-size: 14.5px; line-height: 1.6;">
+        <h4 style="color: var(--primary); margin-bottom: 8px;">ยินดีต้อนรับ นายนราเศรษฐ์ ธัญศิรอนันต์</h4>
+        <p style="margin-bottom: 14px;">ระบบนี้ออกแบบมาเพื่อช่วยจดบันทึกและติดตามงานทุกขั้นตอน ใช้งานง่ายใน 3 ขั้นตอน:</p>
+
+        <div style="background: #f8fafc; border-left: 4px solid var(--primary); padding: 12px 16px; margin-bottom: 12px; border-radius: 4px;">
+          <strong>1. สร้างใบงาน:</strong> กดที่เมนู <strong>"สร้างใบงานใหม่"</strong> ระบุหัวข้องาน วันเริ่มงาน วันครบกำหนด และผู้มอบหมายงาน จากนั้นกดบันทึก
+        </div>
+
+        <div style="background: #f8fafc; border-left: 4px solid #16a34a; padding: 12px 16px; margin-bottom: 12px; border-radius: 4px;">
+          <strong>2. ตรวจสอบงานประจำวันและสัปดาห์:</strong> ดูที่เมนู <strong>"ติดตามงานรายสัปดาห์"</strong> ท่านจะเห็นทันทีว่าวันนี้ต้องทำอะไรบ้าง และแต่ละวันในสัปดาห์มีกำหนดส่งงานใด
+        </div>
+
+        <div style="background: #f8fafc; border-left: 4px solid #dc2626; padding: 12px 16px; margin-bottom: 14px; border-radius: 4px;">
+          <strong>3. ระบบแจ้งเตือนงานล่าช้าอัตโนมัติ:</strong>
+          <ul style="margin-left: 20px; margin-top: 6px;">
+            <li>หากงานเกินกำหนด <strong>3 วัน</strong>: จะขึ้นแถบเตือนสีส้ม ⚠️</li>
+            <li>หากงานเกินกำหนด <strong>5 วันขึ้นไป</strong>: จะขึ้นแถบเตือนสีแดงกระพริบ 🚨 เพื่อให้ท่านเร่งรัดได้ทันเวลา</li>
+          </ul>
+        </div>
+
+        <p style="color: #64748b; font-size: 13px;">* ทุกข้อมูลจะถูกบันทึกไว้ในคอมพิวเตอร์เครื่องนี้โดยอัตโนมัติ และท่านสามารถกดส่งออกเป็น Excel ได้ทุกเวลา</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" onclick="closeHelpModal()">เข้าใจแล้ว เริ่มใช้งานเลย</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       MODAL 3: วิธีเชื่อมต่อ Google Sheets (Google Sheet Setup Guide)
+       ========================================== -->
+  <div id="googleSheetHelpModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 700px;">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>📊</span>
+          <span>วิธีเชื่อมต่อ Google Sheets เป็น Database ใน 3 นาที</span>
+        </div>
+        <button class="btn-close-modal" onclick="closeGoogleSheetHelpModal()">×</button>
+      </div>
+
+      <div class="modal-body" style="font-size: 14px; line-height: 1.6;">
+        <p style="margin-bottom: 14px;">ทำตาม 4 ขั้นตอนง่ายๆ ด้านล่างนี้เพียงครั้งเดียว ท่านก็จะได้ Google Sheets ที่บันทึกข้อมูลใบงานแบบเรียลไทม์ ปลอดภัย และอยู่ตลอดไป:</p>
+
+        <div style="background: #f8fafc; border-left: 4px solid var(--primary); padding: 12px 16px; margin-bottom: 14px; border-radius: 4px;">
+          <h4 style="color: #1e40af; margin-bottom: 4px;">ขั้นตอนที่ 1: เปิด Google Sheets ใหม่</h4>
+          <p>เข้าเว็บ <a href="https://sheets.google.com" target="_blank" style="color: #2563eb; text-decoration: underline; font-weight: 600;">sheets.google.com</a> แล้วกดสร้างสเปรดชีตเปล่าใหม่ 1 ไฟล์ (ตั้งชื่อไฟล์ว่า <em>"ระบบติดตามงาน นายนราเศรษฐ์"</em>)</p>
+        </div>
+
+        <div style="background: #f8fafc; border-left: 4px solid #16a34a; padding: 12px 16px; margin-bottom: 14px; border-radius: 4px;">
+          <h4 style="color: #166534; margin-bottom: 4px;">ขั้นตอนที่ 2: วางโค้ด Apps Script</h4>
+          <p>ที่เมนูด้านบนของ Google Sheets คลิก <strong>ส่วนขยาย (Extensions)</strong> ➔ <strong>Apps Script</strong></p>
+          <p>ลบข้อความเดิมในหน้านั้นออกทั้งหมด แล้วคัดลอกโค้ดด้านล่างนี้ไปวางแทนที่:</p>
+          
+          <div style="margin-top: 10px;">
+            <button class="btn btn-primary btn-sm" onclick="copyAppsScriptCode()" style="margin-bottom: 8px;">
+              📋 คลิกที่นี่เพื่อคัดลอกโค้ด (Copy Code)
+            </button>
+            <pre id="appsScriptCodeBlock" class="code-block">function doGet(e) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var rows = sheet.getDataRange().getValues();
+  if (rows.length &lt;= 1) {
+    return ContentService.createTextOutput(JSON.stringify([])).setMimeType(ContentService.MimeType.JSON);
+  }
+  var tickets = [];
+  for (var i = 1; i &lt; rows.length; i++) {
+    var row = rows[i];
+    if (!row[0]) continue;
+    tickets.push({
+      id: String(row[0]),
+      title: String(row[1] || ''),
+      description: String(row[2] || ''),
+      assigner: String(row[3] || ''),
+      category: String(row[4] || ''),
+      priority: String(row[5] || 'normal'),
+      startDate: String(row[6] || ''),
+      endDate: String(row[7] || ''),
+      duration: String(row[8] || ''),
+      status: String(row[9] || 'pending'),
+      progress: Number(row[10] || 0),
+      notes: String(row[11] || ''),
+      completedAt: String(row[12] || ''),
+      createdAt: String(row[13] || '')
+    });
+  }
+  return ContentService.createTextOutput(JSON.stringify(tickets)).setMimeType(ContentService.MimeType.JSON);
+}
+
+function doPost(e) {
+  try {
+    var rawData = e.postData.contents;
+    var parsed = JSON.parse(rawData);
+    var tickets = Array.isArray(parsed) ? parsed : (parsed.tickets || []);
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    sheet.clearContents();
+    var headers = ['รหัสใบงาน', 'หัวข้องาน', 'รายละเอียด', 'ผู้มอบหมาย', 'หมวดหมู่', 'ความสำคัญ', 'วันเริ่มงาน', 'วันสิ้นสุดงาน', 'ระยะเวลา', 'สถานะ', 'ความคืบหน้า%', 'บันทึกช่วยจำ', 'วันที่เสร็จจริง', 'วันที่สร้าง'];
+    var outputRows = [headers];
+    for (var i = 0; i &lt; tickets.length; i++) {
+      var t = tickets[i];
+      outputRows.push([
+        t.id, t.title, t.description || '', t.assigner, t.category || '', t.priority,
+        t.startDate, t.endDate, t.duration || '', t.status, t.progress || 0,
+        t.notes || '', t.completedAt || '', t.createdAt || ''
+      ]);
+    }
+    sheet.getRange(1, 1, outputRows.length, headers.length).setValues(outputRows);
+    sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold').setBackground('#2563eb').setFontColor('#ffffff');
+    return ContentService.createTextOutput(JSON.stringify({ success: true, count: tickets.length })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: err.toString() })).setMimeType(ContentService.MimeType.JSON);
+  }
+}</pre>
+          </div>
+        </div>
+
+        <div style="background: #f8fafc; border-left: 4px solid #d97706; padding: 12px 16px; margin-bottom: 14px; border-radius: 4px;">
+          <h4 style="color: #92400e; margin-bottom: 4px;">ขั้นตอนที่ 3: เผยแพร่เว็บแอป (Deploy)</h4>
+          <ol style="margin-left: 20px;">
+            <li>กดปุ่มสีน้ำเงิน <strong>"ทำให้ใช้งานได้" (Deploy)</strong> ที่มุมขวาบน ➔ เลือก <strong>"การทำให้ใช้งานได้ใหม่" (New deployment)</strong></li>
+            <li>กดไอคอนรูปฟันเฟือง ⚙️ ทางซ้าย เลือกประเภทเป็น <strong>"เว็บแอป" (Web app)</strong></li>
+            <li>ช่อง <strong>ผู้มีสิทธิ์เข้าถึง (Who has access)</strong>: ให้เปลี่ยนเป็น <strong>"ทุกคน" (Anyone)</strong> <em>(สำคัญมาก เพื่อให้ส่งข้อมูลได้)</em></li>
+            <li>กดปุ่ม <strong>"ทำให้ใช้งานได้" (Deploy)</strong> แล้วกดอนุญาตสิทธิ์ (Authorize access) ให้เรียบร้อย</li>
+          </ol>
+        </div>
+
+        <div style="background: #f8fafc; border-left: 4px solid #8b5cf6; padding: 12px 16px; margin-bottom: 14px; border-radius: 4px;">
+          <h4 style="color: #5b21b6; margin-bottom: 4px;">ขั้นตอนที่ 4: นำลิงก์มาวางในโปรแกรม</h4>
+          <p>คัดลอก <strong>URL เว็บแอป (Web app URL)</strong> ที่ได้มา วางลงในช่อง "ลิงก์ Google Apps Script" ในแท็บตั้งค่า แล้วกด <strong>"บันทึกและทดสอบเชื่อมต่อ"</strong> ข้อมูลจะถูกซิงค์ขึ้น Google Sheets ทันที!</p>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-primary" onclick="closeGoogleSheetHelpModal()">เข้าใจแล้ว ปิดหน้าต่าง</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- JavaScript Modules -->
+  <script src="js/i18n.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
